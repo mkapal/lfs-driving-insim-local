@@ -21,10 +21,8 @@ inSim.connect({
   ReqI: IS_ISI_ReqI.SEND_VERSION,
 });
 
-let signalTimeout: NodeJS.Timeout | null = null;
-
 type State = {
-  signals: "left" | "right" | "off";
+  signals: "left" | "right" | "all" | "off";
   isSignalLightOn: boolean;
 };
 
@@ -68,7 +66,7 @@ inSim.on(PacketType.ISP_VER, (packet) => {
 // Must be longer than interval between on and off states when blinking
 const TURN_SIGNAL_INTERVAL_MS = 1100;
 
-const debouncedFn = debounce((playerId: number) => {
+const turnSignalsOffWithDebounce = debounce((playerId: number) => {
   log("signals off");
   state.signals = "off";
   state.isSignalLightOn = false;
@@ -76,16 +74,34 @@ const debouncedFn = debounce((playerId: number) => {
 }, TURN_SIGNAL_INTERVAL_MS);
 
 function handleTurnSignals(packet: OutGaugePack) {
+  // Turning on both signals
+  if (
+    (state.signals !== "all" || !state.isSignalLightOn) &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_L) > 0 &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_R) > 0
+  ) {
+    log("all signals on");
+    turnSignalsOffWithDebounce(packet.PLID);
+
+    if (state.signals !== "all") {
+      inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_ALL ${packet.PLID}` }));
+    }
+
+    state.signals = "all";
+    state.isSignalLightOn = true;
+    return;
+  }
+
   // Turning on left signal
   if (
-    ((state.signals === "left" && !state.isSignalLightOn) ||
-      state.signals === "off") &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_L) > 0
+    (state.signals !== "left" || !state.isSignalLightOn) &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_L) > 0 &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_R) === 0
   ) {
-    log("left on");
-    debouncedFn(packet.PLID);
+    log("left signal on");
+    turnSignalsOffWithDebounce(packet.PLID);
 
-    if (state.signals === "off") {
+    if (state.signals !== "left") {
       inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_L ${packet.PLID}` }));
     }
 
@@ -100,9 +116,53 @@ function handleTurnSignals(packet: OutGaugePack) {
     state.isSignalLightOn &&
     (packet.ShowLights & DashLights.DL_SIGNAL_L) === 0
   ) {
-    log("left off");
+    log("left signal off");
     state.isSignalLightOn = false;
-    debouncedFn(packet.PLID);
+    turnSignalsOffWithDebounce(packet.PLID);
+    return;
+  }
+
+  // Turning on right signal
+  if (
+    (state.signals !== "right" || !state.isSignalLightOn) &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_L) === 0 &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_R) > 0
+  ) {
+    log("right signal on");
+    turnSignalsOffWithDebounce(packet.PLID);
+
+    if (state.signals !== "right") {
+      inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_R ${packet.PLID}` }));
+    }
+
+    state.signals = "right";
+    state.isSignalLightOn = true;
+    return;
+  }
+
+  // Turning off right signal
+  if (
+    state.signals === "right" &&
+    state.isSignalLightOn &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_R) === 0
+  ) {
+    log("right signal off");
+    state.isSignalLightOn = false;
+    turnSignalsOffWithDebounce(packet.PLID);
+    return;
+  }
+
+  // Turning off all signals
+  if (
+    state.signals === "all" &&
+    state.isSignalLightOn &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_R) === 0 &&
+    (packet.ShowLights & DashLights.DL_SIGNAL_L) === 0
+  ) {
+    log("all signals off");
+    state.isSignalLightOn = false;
+    turnSignalsOffWithDebounce(packet.PLID);
+    return;
   }
 }
 
