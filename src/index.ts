@@ -1,5 +1,5 @@
 import "./env";
-import { DashLights, InSim, OutGauge, OutGaugePack } from "node-insim";
+import { InSim, OutGauge } from "node-insim";
 import {
   InSimFlags,
   IS_ISI_ReqI,
@@ -9,7 +9,8 @@ import {
   PacketType,
 } from "node-insim/packets";
 import { log } from "./log";
-import debounce from "debounce";
+import { createTrafficLightIntersections } from "./trafficLightIntersections";
+import { handleIndicators } from "./indicators";
 
 const inSim = new InSim();
 inSim.connect({
@@ -20,16 +21,6 @@ inSim.connect({
   Flags: InSimFlags.ISF_LOCAL,
   ReqI: IS_ISI_ReqI.SEND_VERSION,
 });
-
-type State = {
-  signals: "left" | "right" | "all" | "off";
-  isSignalLightOn: boolean;
-};
-
-const state: State = {
-  signals: "off",
-  isSignalLightOn: false,
-};
 
 const outGauge = new OutGauge();
 
@@ -56,115 +47,15 @@ inSim.on(PacketType.ISP_VER, (packet) => {
         Sound: MessageSound.SND_SYSMESSAGE,
       }),
     );
+
+    handleIndicators(inSim, outGauge);
+    createTrafficLightIntersections(inSim);
   });
 
-  outGauge.on("packet", (packet) => {
-    handleTurnSignals(packet);
+  outGauge.on("disconnect", () => {
+    log("OutGauge disconnected");
   });
 });
-
-// Must be longer than interval between on and off states when blinking
-const TURN_SIGNAL_INTERVAL_MS = 1100;
-
-const turnSignalsOffWithDebounce = debounce((playerId: number) => {
-  log("signals off");
-  state.signals = "off";
-  state.isSignalLightOn = false;
-  inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_OFF ${playerId}` }));
-}, TURN_SIGNAL_INTERVAL_MS);
-
-function handleTurnSignals(packet: OutGaugePack) {
-  // Turning on both signals
-  if (
-    (state.signals !== "all" || !state.isSignalLightOn) &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_L) > 0 &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_R) > 0
-  ) {
-    log("all signals on");
-    turnSignalsOffWithDebounce(packet.PLID);
-
-    if (state.signals !== "all") {
-      inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_ALL ${packet.PLID}` }));
-    }
-
-    state.signals = "all";
-    state.isSignalLightOn = true;
-    return;
-  }
-
-  // Turning on left signal
-  if (
-    (state.signals !== "left" || !state.isSignalLightOn) &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_L) > 0 &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_R) === 0
-  ) {
-    log("left signal on");
-    turnSignalsOffWithDebounce(packet.PLID);
-
-    if (state.signals !== "left") {
-      inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_L ${packet.PLID}` }));
-    }
-
-    state.signals = "left";
-    state.isSignalLightOn = true;
-    return;
-  }
-
-  // Turning off left signal
-  if (
-    state.signals === "left" &&
-    state.isSignalLightOn &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_L) === 0
-  ) {
-    log("left signal off");
-    state.isSignalLightOn = false;
-    turnSignalsOffWithDebounce(packet.PLID);
-    return;
-  }
-
-  // Turning on right signal
-  if (
-    (state.signals !== "right" || !state.isSignalLightOn) &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_L) === 0 &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_R) > 0
-  ) {
-    log("right signal on");
-    turnSignalsOffWithDebounce(packet.PLID);
-
-    if (state.signals !== "right") {
-      inSim.send(new IS_MST({ Msg: `/i DL_SIGNAL_R ${packet.PLID}` }));
-    }
-
-    state.signals = "right";
-    state.isSignalLightOn = true;
-    return;
-  }
-
-  // Turning off right signal
-  if (
-    state.signals === "right" &&
-    state.isSignalLightOn &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_R) === 0
-  ) {
-    log("right signal off");
-    state.isSignalLightOn = false;
-    turnSignalsOffWithDebounce(packet.PLID);
-    return;
-  }
-
-  // Turning off all signals
-  if (
-    state.signals === "all" &&
-    state.isSignalLightOn &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_R) === 0 &&
-    (packet.ShowLights & DashLights.DL_SIGNAL_L) === 0
-  ) {
-    log("all signals off");
-    state.isSignalLightOn = false;
-    turnSignalsOffWithDebounce(packet.PLID);
-    return;
-  }
-}
 
 inSim.on("connect", () => log("InSim connected"));
 inSim.on("disconnect", () => log("InSim disconnected"));

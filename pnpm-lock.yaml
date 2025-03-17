@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      debounce:
+        specifier: ^2.2.0
+        version: 2.2.0
       debug:
         specifier: ^4.3.7
         version: 4.3.7(supports-color@9.4.0)
@@ -29,6 +32,9 @@ importers:
       supports-color:
         specifier: ^9.4.0
         version: 9.4.0
+      xstate:
+        specifier: ^5.19.2
+        version: 5.19.2
     devDependencies:
       '@types/debug':
         specifier: ^4.1.12
@@ -39,9 +45,6 @@ importers:
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.12
-      debounce:
-        specifier: ^2.2.0
-        version: 2.2.0
       prettier:
         specifier: ^3.3.3
         version: 3.3.3
@@ -895,6 +898,9 @@ packages:
     resolution: {integrity: sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ==}
     engines: {node: '>=12'}
 
+  xstate@5.19.2:
+    resolution: {integrity: sha512-B8fL2aP0ogn5aviAXFzI5oZseAMqN00fg/TeDa3ZtatyDcViYLIfuQl4y8qmHCiKZgGEzmnTyNtNQL9oeJE2gw==}
+
   yoga-layout-prebuilt@1.10.0:
     resolution: {integrity: sha512-YnOmtSbv4MTf7RGJMK0FvZ+KD8OEe/J5BNnR0GHhD8J/XcG/Qvxgszm0Un6FTHWW4uHlTgP0IztiXQnGyIR45g==}
     engines: {node: '>=8'}
@@ -1582,6 +1588,8 @@ snapshots:
       ansi-styles: 6.2.1
       string-width: 5.1.2
       strip-ansi: 7.1.0
+
+  xstate@5.19.2: {}
 
   yoga-layout-prebuilt@1.10.0:
     dependencies:
