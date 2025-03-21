@@ -7,12 +7,7 @@ import {
 } from "node-insim/packets";
 import { assign, createActor, createMachine } from "xstate";
 
-type TrafficLightColor =
-  | "OFF______"
-  | "STOP_____"
-  | "GO_______"
-  | "STOP_WAIT"
-  | "GO_WAIT__";
+type TrafficLightColor = "OFF__" | "STOP_" | "GO___" | "STOP*" | "GO*__";
 
 export type TrafficLightController = {
   createIntersection: (
@@ -43,7 +38,7 @@ export function initialize(inSim: InSim): TrafficLightController {
       context: {
         lights: setTrafficLights(
           ids,
-          Array.from({ length: ids.length }, () => "STOP_____"),
+          Array.from({ length: ids.length }, () => "STOP*"),
         ),
       },
       states: Object.fromEntries(entries),
@@ -59,13 +54,13 @@ export function initialize(inSim: InSim): TrafficLightController {
             Index: ObjectIndex.AXO_START_LIGHTS,
             Identifier: id,
             Data:
-              (color === "STOP_____" || color === "GO_WAIT__"
+              (color === "STOP_" || color === "GO*__"
                 ? OCOAutocrossStartLights.RED
                 : 0) |
-              (color === "STOP_WAIT" || color === "GO_WAIT__"
+              (color === "STOP*" || color === "GO*__"
                 ? OCOAutocrossStartLights.AMBER
                 : 0) |
-              (color === "GO_______" ? OCOAutocrossStartLights.GREEN : 0),
+              (color === "GO___" ? OCOAutocrossStartLights.GREEN : 0),
           }),
         );
       });
@@ -79,9 +74,9 @@ export function initialize(inSim: InSim): TrafficLightController {
   };
 }
 
-const setTrafficLights = (ids: number[], colorMap: TrafficLightColor[]) => {
+function setTrafficLights(ids: number[], colorMap: TrafficLightColor[]) {
   return ids.map((id, index) => ({
     id,
-    color: colorMap[index] || "STOP_____",
+    color: colorMap[index] || "STOP_",
   }));
-};
+}
