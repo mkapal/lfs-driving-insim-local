@@ -4,7 +4,6 @@ import {
   InSimFlags,
   IS_ISI_ReqI,
   IS_MSL,
-  IS_MST,
   MessageSound,
   PacketType,
 } from "node-insim/packets";
